@@ -11,6 +11,8 @@
 #include <DHT.h>
 #include <EEPROM.h>
 
+#ifdef PROD
+
 #define BUS_PIN 2
 #define TXCTRL_PIN 5 // TODO: implement
 #define RELAY1_PIN 3
@@ -18,6 +20,17 @@
 #define TH_RELAY_PIN 6
 #define DHT_PIN 8
 #define DHT_TYPE DHT22
+
+#else
+
+#define DHT_PIN 2
+#define DHT_TYPE DHT22
+#define RELAY1_PIN 3
+#define RELAY2_PIN 4
+#define HEAT_REQ_PIN 5
+#define TH_RELAY_PIN 6
+
+#endif
 
 // operation modes
 #define ECO false  
@@ -32,6 +45,7 @@ struct RParams {
   float T_setting;
   long T_pollrate;
   bool operation_mode;
+  bool heatreq_override;
 };
 struct RIn {
   float temperature;
@@ -41,6 +55,7 @@ struct ROut {
   bool relay1;
   bool relay2;
   bool relay_th;
+  bool relay_heatreq;
 };
 
 struct Repo {
@@ -50,9 +65,9 @@ struct Repo {
 };
 
 // Defaults
-const RParams DEFAULT_RPparams = { /*T_setting*/18.0f, /*T_pollrate*/60000, /*operation_mode*/ECO };
-const RIn DEFAULT_RIn = {NaN, NaN};
-const ROut DEFAULT_ROut = { LOW, LOW, LOW };
+const RParams DEFAULT_RParams = { /*T_setting*/18.0f, /*T_pollrate*/60000, /*operation_mode*/ECO, false};
+const RIn DEFAULT_RIn = {NAN, NAN};
+const ROut DEFAULT_ROut = { LOW, LOW, LOW, LOW };
 
 /*
  *  ROM
@@ -70,7 +85,7 @@ struct ROM {
 
 
 // default ROM
-const ROM DEFAULT_ROM = { 1, 1, DEFAULT_RParamsS, CRC_OK };
+const ROM DEFAULT_ROM = { 1, 1, DEFAULT_RParams, CRC_OK };
 
 unsigned long CRC(byte * rom, size_t bytes);
 #define CRC_ROM(p_rom) CRC((byte*)p_rom, sizeof(ROM))
@@ -94,14 +109,16 @@ void repo_init(); // +
 // pinmodes
 void hw_init(); // +
 
-// invoke commands; get/set repo data
-void handle_gsm(); 
-
 // repo <-> io 
-void update_inputs();
-void flush_outputs();
+void update_inputs(); // +
+void flush_outputs(); // +
+
+// invoke commands; get/set repo data
+void handle_gsm(); // +
+
 
 // compute outputs
-void compute();
+void compute(); // +
+
 
 #endif //MODULE1_H
