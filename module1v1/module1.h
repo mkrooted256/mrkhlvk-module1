@@ -5,21 +5,37 @@
 
 #include "Arduino.h"
 #include "bus.h"
-#include "gsmshield_pins.h"
 
-#include <GSM.h>
 #include <DHT.h>
 #include <EEPROM.h>
 
+#ifdef __arm__
+// should use uinstd.h to define sbrk but Due causes a conflict
+extern "C" char* sbrk(int incr);
+#else  // __ARM__
+extern char *__brkval;
+#endif  // __arm__
+ 
+int freeMemory() {
+  char top;
+#ifdef __arm__
+  return &top - reinterpret_cast<char*>(sbrk(0));
+#elif defined(CORE_TEENSY) || (ARDUINO > 103 && ARDUINO != 151)
+  return &top - __brkval;
+#else  // __arm__
+  return __brkval ? &top - __brkval : &top - __malloc_heap_start;
+#endif  // __arm__
+}
+
 #ifdef PROD
 
-#define BUS_PIN 2
-#define TXCTRL_PIN 5 // TODO: implement
-#define RELAY1_PIN 3
-#define RELAY2_PIN 4
-#define TH_RELAY_PIN 6
-#define DHT_PIN 8
-#define DHT_TYPE DHT22
+//#define BUS_PIN 2
+//#define TXCTRL_PIN 5 // TODO: implement
+//#define RELAY1_PIN 3
+//#define RELAY2_PIN 4
+//#define TH_RELAY_PIN 6
+//#define DHT_PIN 8
+//#define DHT_TYPE DHT22
 
 #else
 
@@ -43,7 +59,7 @@
 
 struct RParams {
   float T_setting;
-  long T_pollrate;
+  unsigned long T_pollrate;
   bool operation_mode;
   bool heatreq_override;
 };
@@ -65,7 +81,7 @@ struct Repo {
 };
 
 // Defaults
-const RParams DEFAULT_RParams = { /*T_setting*/18.0f, /*T_pollrate*/60000, /*operation_mode*/ECO, false};
+const RParams DEFAULT_RParams = { /*T_setting*/18.0f, /*T_pollrate*/60000, /*operation_mode*/ECO, /*heatreq_override*/false};
 const RIn DEFAULT_RIn = {NAN, NAN};
 const ROut DEFAULT_ROut = { LOW, LOW, LOW, LOW };
 
@@ -120,5 +136,17 @@ void handle_gsm(); // +
 // compute outputs
 void compute(); // +
 
+/*
+ * UTILS
+ */
+
+struct PrFloat {
+  int i;
+  int f;
+};
+PrFloat printfloat(float f, int prec=2) {
+  const long tens[] = {1, 10, 100, 1000, 10000, 100000, 1000000};
+  return {f, (f-int(f))*tens[prec]};
+}
 
 #endif //MODULE1_H
