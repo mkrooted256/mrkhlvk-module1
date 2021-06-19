@@ -50,8 +50,19 @@ void gsmshield_clear_sms();
 void gsmshield_send_sms(char * number, char * text);
 int gsmshield_receive_sms();
 
+void gsmshield_powerswitch() {
+  pinMode(GSM_PWR, OUTPUT);
+  digitalWrite(GSM_PWR, GSM_POWER_ON);
+  delay(1000);
+  pinMode(GSM_PWR, INPUT);
+  delay(500);
+  
+}
+
 // blocking!
 bool gsmshield_init() {
+  gsmshield_powerswitch();
+  
   sim_serial.begin(9600);
   sim_serial.setTimeout(GSM_TIMEOUT);
   bool success = false;

@@ -238,10 +238,10 @@ void hw_init() {
 //  pinMode(GSM_RX, INPUT);
 //  pinMode(GSM_TX, OUTPUT);
 //  pinMode(GSM_PWR, OUTPUT);
-//  pinMode(RELAY1_PIN, OUTPUT);
-//  pinMode(RELAY2_PIN, OUTPUT);
+  pinMode(RELAY1_PIN, OUTPUT);
+  pinMode(RELAY2_PIN, OUTPUT);
 //  pinMode(TH_RELAY_PIN, OUTPUT);
-//  pinMode(HEAT_REQ_PIN, OUTPUT);
+  pinMode(HEAT_REQ_PIN, OUTPUT);
 
 //  dht.begin();
 }
@@ -257,10 +257,10 @@ void update_inputs() {
 
 // r1, r2, r_th, r_heatreq
 void flush_outputs() {
-//  digitalWrite(RELAY1_PIN, outputs.relay1);
-//  digitalWrite(RELAY2_PIN, outputs.relay2);
+  digitalWrite(RELAY1_PIN, !outputs.relay1);
+  digitalWrite(RELAY2_PIN, !outputs.relay2);
 //  digitalWrite(TH_RELAY_PIN, outputs.relay_th);
-//  digitalWrite(HEAT_REQ_PIN, outputs.relay_heatreq);
+  digitalWrite(HEAT_REQ_PIN, !outputs.relay_heatreq);
 }
 
 /*
@@ -325,11 +325,11 @@ void handle_set(RecSMS * sms) {
   if (parse_set(sms, "override=", newval)) { params.heatreq_override = newval; n_changed++; }
   if (parse_set(sms, "heatreq=", newval)) {
     params.heatreq_override = true;
-    outputs.relay_heatreq = newval;
+    params.relay_heatreq = newval;
     n_changed++;
   }
-  if (parse_set(sms, "R1=", newval)) { outputs.relay1 = newval; n_changed++; }
-  if (parse_set(sms, "R2=", newval)) { outputs.relay2 = newval; n_changed++; }
+  if (parse_set(sms, "R1=", newval)) { params.relay1 = newval; n_changed++; }
+  if (parse_set(sms, "R2=", newval)) { params.relay2 = newval; n_changed++; }
 
   // TODO: add float and int params
 
@@ -340,9 +340,9 @@ void handle_set(RecSMS * sms) {
 }
 
 void handle_test(RecSMS * sms) {
-  outputs.relay1 = !outputs.relay1;
+  params.relay1 = !params.relay1;
   
-  sprintf(replybuf, "relay 1 to %d\0", outputs.relay1);
+  sprintf(replybuf, "relay 1 to %d\0", params.relay1);
   gsm_send_sms(replybuf, sms->number);
 }
 // end HANDLERS
@@ -408,4 +408,9 @@ void compute() {
   if (!params.heatreq_override) {
     outputs.relay_heatreq = (inputs.temperature < params.T_setting); // placeholder algorithm
   } // otherwise just do not compute, leave relay_heatreq unchanged
+  else {
+    outputs.relay_heatreq = params.relay_heatreq;
+  }
+  outputs.relay1 = params.relay1;
+  outputs.relay2 = params.relay2;
 }

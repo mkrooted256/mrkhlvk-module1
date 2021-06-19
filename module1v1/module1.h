@@ -58,6 +58,11 @@ int freeMemory() {
  */
 
 struct RParams {
+  // outputs
+  bool relay1;
+  bool relay2;
+  bool relay_heatreq;
+  // settings
   float T_setting;
   unsigned long T_pollrate;
   bool operation_mode;
@@ -81,7 +86,7 @@ struct Repo {
 };
 
 // Defaults
-const RParams DEFAULT_RParams = { /*T_setting*/18.0f, /*T_pollrate*/60000, /*operation_mode*/ECO, /*heatreq_override*/false};
+const RParams DEFAULT_RParams = { LOW, LOW, LOW, /*T_setting*/18.0f, /*T_pollrate*/60000, /*operation_mode*/ECO, /*heatreq_override*/false};
 const RIn DEFAULT_RIn = {NAN, NAN};
 const ROut DEFAULT_ROut = { LOW, LOW, LOW, LOW };
 
@@ -101,7 +106,7 @@ struct ROM {
 
 
 // default ROM
-const ROM DEFAULT_ROM = { 1, 1, DEFAULT_RParams, CRC_OK };
+const ROM DEFAULT_ROM = { 1, 2, DEFAULT_RParams, CRC_OK };
 
 unsigned long CRC(byte * rom, size_t bytes);
 #define CRC_ROM(p_rom) CRC((byte*)p_rom, sizeof(ROM))
