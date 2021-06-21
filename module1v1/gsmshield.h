@@ -10,7 +10,7 @@
 #include "Arduino.h"
 #include <SoftwareSerial.h>
 
-#define GSM_TIMEOUT 5000
+#define GSM_TIMEOUT 8000
 #define GSMOUT_BUFLEN 250
 #define GSM_BUFLEN 250
 #define SMS_BUFLEN 250
@@ -54,26 +54,31 @@ void gsmshield_powerswitch() {
   pinMode(GSM_PWR, OUTPUT);
   digitalWrite(GSM_PWR, GSM_POWER_ON);
   delay(1000);
-  pinMode(GSM_PWR, INPUT);
-  delay(500);
+  digitalWrite(GSM_PWR, !GSM_POWER_ON);
+  delay(5000);
   
 }
 
 // blocking!
 bool gsmshield_init() {
-  gsmshield_powerswitch();
   
   sim_serial.begin(9600);
   sim_serial.setTimeout(GSM_TIMEOUT);
   bool success = false;
+  bool powered_on = false;
   while (!success) {
     Serial.println("GSM: Connecting");
     sim_serial.print("ATE0\r");
     sim_serial.print("AT\r");
     _read_serial(gsmbuf);
-    if (strstr(gsmbuf, "OK")) success = true;
+    if (strstr(gsmbuf, "OK")) { 
+      success = true;
+    } else {
+      Serial.println(F("GSM: Powering on"));
+      gsmshield_powerswitch();
+    }
     Serial.println(gsmbuf);
-    delay(1000);
+    delay(1000); 
   }
 }
 
@@ -91,34 +96,48 @@ void gsmshield_clear_sms() {
 }
 
 void gsmshield_send_sms(char * number, char * text) {
-//  sim_serial.setTimeout(10000);
   sprintf(gsmoutbuf, "%c\rAT+CMGS=\"%s\",\r", ESC, number);
-    Serial.print(">1>");
+    Serial.print(">>");
     Serial.print(gsmoutbuf);
-    Serial.println("<1<");
+    Serial.println("/>>");
   sim_serial.print(gsmoutbuf);
   _read_serial(gsmbuf);
-    Serial.println(">>");
-    Serial.println(gsmbuf);
     Serial.println("<<");
-  sprintf(gsmoutbuf, "%s%c\r", text, END);
-    Serial.print(">2>");
+    Serial.println(gsmbuf);
+    Serial.println("/<<");
+  sprintf(gsmoutbuf, "%s%c\r\n", text, END);
+    Serial.print(">>");
     Serial.print(gsmoutbuf);
-    Serial.println("<2<");
+    Serial.println("/>>");
   sim_serial.print(gsmoutbuf);
   _read_serial(gsmbuf);
-    Serial.println(">>>");
+    Serial.println("<<");
+    Serial.println(gsmbuf);
+    Serial.println("/<<");
+  
+  gsm_error = ERR;
+
+  int timeout_tries = 0;
+  while (timeout_tries <= 3) {
+    timeout_tries++;
+    if (strstr(gsmbuf, "+CMGS:")) {
+      gsm_error = OK;
+      break;
+    } else if (strstr(gsmbuf, "CMS ERR") != 0) {
+      break;
+    } else {
+      Serial.print("Waiting ");
+      Serial.print(timeout_tries);
+      Serial.println("nd time");
+      _read_serial(gsmbuf);
+    }
+  }
+  // gsm_error==ERR unless success
+  if (gsm_error != OK) {
+    Serial.println("GSM: ERROR. gsmbuf >>>");
     Serial.println(gsmbuf);
     Serial.println("<<<");
-  if (strstr(gsmbuf, "+CMGS:")) {
-    gsm_error = OK;
-  } else {
-    gsm_error = ERR;
-    Serial.println("GSM: SMS send error >>>>");
-    Serial.println(gsmbuf);
-    Serial.println("<<<<");
   }
-//  sim_serial.setTimeout(GSM_TIMEOUT);
 }
 
 
@@ -126,7 +145,7 @@ int gsmshield_receive_sms(RecSMS * smsbuf) {
   int smsbuf_n = 0;
   
   sim_serial.print(ESC);
-  sim_serial.print("AT+CMGL=\"REC UNREAD\"\r");
+  sim_serial.print("\rAT+CMGL=\"REC UNREAD\"\r");
   _read_serial(gsmbuf);
 
   Serial.println(">>>>");
@@ -139,14 +158,22 @@ int gsmshield_receive_sms(RecSMS * smsbuf) {
   
   strcpy(publicbuf, gsmbuf);
   
-  char * pch = strchr(publicbuf, '+');
+  char * pch = publicbuf;
   
   while (pch) {
-    if (strncmp(pch, "+CMS ERR", 8) == 0) {
-      // TODO: cms error
-      break;
+    pch = strchr(pch, '+');
+    if (pch == 0) { break; }
+    if (strncmp(pch, "+CMGL:", 6) != 0){
+      if (strncmp(pch, "+CMS ERR", 8) == 0) {
+        // TODO: cms error
+        break;
+      }
+      pch++;
+      continue; // continue searching for SMS beginning.
     }
-    // sms record. skip "CMGL: "
+
+    // SUCCESS: SMS beginning found
+    // skip "CMGL: "
     pch += 7;
     // 1. Index
     pch = strtok(pch, ","); 
@@ -178,14 +205,13 @@ int gsmshield_receive_sms(RecSMS * smsbuf) {
     pch = strchr(pch, 0);
     while (!pch[0]) pch++; // find first not-0 char
 //    Serial.println(pch);
-    pch = strchr(pch, '+');
 //    Serial.println(pch);
   }
 
   // TODO: look for "OK"
   
-//  gsm_clear_sms();
-//  delay(20);
+  gsmshield_clear_sms();
+  delay(20);
 
   return smsbuf_n;
 }

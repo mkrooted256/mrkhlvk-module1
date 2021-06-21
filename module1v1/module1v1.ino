@@ -68,7 +68,7 @@ void loop() {
   } else {
     Serial.print("scmd: ");
     delay(1000);
-    if(Serial.available() and Serial.peek()=='\\') { Serial.read(); MANUAL = true; return; }
+    if(Serial.available() and Serial.read()=='\\') { MANUAL = true; return; }
     
     handle_gsm();
   
@@ -108,7 +108,7 @@ void gsm_send_sms(char * body, char * to) {
   Serial.print("GSM: SMS sending to ");
   Serial.println(to);
   
-  gsmshield_send_sms(to, body);
+  gsmshield_send_sms(to, body); // TODO: ERROR here
 
   Serial.println("GSM: sent");
   delay(2000);
@@ -213,6 +213,10 @@ void repo_init() {
   Serial.print(params.operation_mode);
   Serial.print(" ");
   Serial.print(params.heatreq_override);
+  Serial.print(" ");
+  Serial.print(params.relay1);
+  Serial.print(" ");
+  Serial.print(params.relay2);
   Serial.println(" }");
 }
 
@@ -240,10 +244,10 @@ void hw_init() {
 //  pinMode(GSM_PWR, OUTPUT);
   pinMode(RELAY1_PIN, OUTPUT);
   pinMode(RELAY2_PIN, OUTPUT);
-//  pinMode(TH_RELAY_PIN, OUTPUT);
-  pinMode(HEAT_REQ_PIN, OUTPUT);
+  pinMode(TH_RELAY_PIN, OUTPUT);
+//  pinMode(HEAT_REQ_PIN, OUTPUT);
 
-//  dht.begin();
+  dht.begin();
 }
 
 // Temperature, Humidity
@@ -259,8 +263,8 @@ void update_inputs() {
 void flush_outputs() {
   digitalWrite(RELAY1_PIN, !outputs.relay1);
   digitalWrite(RELAY2_PIN, !outputs.relay2);
-//  digitalWrite(TH_RELAY_PIN, outputs.relay_th);
-  digitalWrite(HEAT_REQ_PIN, !outputs.relay_heatreq);
+  digitalWrite(TH_RELAY_PIN, !outputs.relay_th);
+//  digitalWrite(HEAT_REQ_PIN, !outputs.relay_heatreq);
 }
 
 /*
@@ -325,13 +329,16 @@ void handle_set(RecSMS * sms) {
   if (parse_set(sms, "override=", newval)) { params.heatreq_override = newval; n_changed++; }
   if (parse_set(sms, "heatreq=", newval)) {
     params.heatreq_override = true;
-    params.relay_heatreq = newval;
+    outputs.relay_heatreq = newval;
     n_changed++;
   }
   if (parse_set(sms, "R1=", newval)) { params.relay1 = newval; n_changed++; }
   if (parse_set(sms, "R2=", newval)) { params.relay2 = newval; n_changed++; }
 
   // TODO: add float and int params
+
+  save_to_rom();
+  save_rom();
 
   Serial.print(n_changed);
   Serial.println(" settings saved");
@@ -390,8 +397,8 @@ void handle_gsm() {
     // nothing passed -> invalid command
     if (!cmd->handler) {
       Serial.println("CMD: invalid command");
-      char * reply = "invalid command";
-      gsm_send_sms(reply, sms->number);
+//      char * reply = "invalid command";
+//      gsm_send_sms(reply, sms->number);
       continue;
     }
     update_inputs();
@@ -408,9 +415,8 @@ void compute() {
   if (!params.heatreq_override) {
     outputs.relay_heatreq = (inputs.temperature < params.T_setting); // placeholder algorithm
   } // otherwise just do not compute, leave relay_heatreq unchanged
-  else {
-    outputs.relay_heatreq = params.relay_heatreq;
-  }
+
+  outputs.relay_th = params.operation_mode;
   outputs.relay1 = params.relay1;
   outputs.relay2 = params.relay2;
 }

@@ -9,24 +9,6 @@
 #include <DHT.h>
 #include <EEPROM.h>
 
-#ifdef __arm__
-// should use uinstd.h to define sbrk but Due causes a conflict
-extern "C" char* sbrk(int incr);
-#else  // __ARM__
-extern char *__brkval;
-#endif  // __arm__
- 
-int freeMemory() {
-  char top;
-#ifdef __arm__
-  return &top - reinterpret_cast<char*>(sbrk(0));
-#elif defined(CORE_TEENSY) || (ARDUINO > 103 && ARDUINO != 151)
-  return &top - __brkval;
-#else  // __arm__
-  return __brkval ? &top - __brkval : &top - __malloc_heap_start;
-#endif  // __arm__
-}
-
 #ifdef PROD
 
 //#define BUS_PIN 2
@@ -39,14 +21,19 @@ int freeMemory() {
 
 #else
 
-#define DHT_PIN 2
+#define DHT_PIN 50
 #define DHT_TYPE DHT22
-#define RELAY1_PIN 3
-#define RELAY2_PIN 4
-#define HEAT_REQ_PIN 5
-#define TH_RELAY_PIN 6
+#define RELAY1_PIN 52
+#define RELAY2_PIN 53
+#define HEAT_REQ_PIN 51
+#define TH_RELAY_PIN 51
 
 #endif
+
+// ----------------------------
+#define MODULE_ID   1
+#define MODULE_FW_V 3
+// ----------------------------
 
 // operation modes
 #define ECO false  
@@ -61,7 +48,6 @@ struct RParams {
   // outputs
   bool relay1;
   bool relay2;
-  bool relay_heatreq;
   // settings
   float T_setting;
   unsigned long T_pollrate;
@@ -86,7 +72,7 @@ struct Repo {
 };
 
 // Defaults
-const RParams DEFAULT_RParams = { LOW, LOW, LOW, /*T_setting*/18.0f, /*T_pollrate*/60000, /*operation_mode*/ECO, /*heatreq_override*/false};
+const RParams DEFAULT_RParams = { LOW, LOW, /*T_setting*/18.0f, /*T_pollrate*/60000, /*operation_mode*/ECO, /*heatreq_override*/false};
 const RIn DEFAULT_RIn = {NAN, NAN};
 const ROut DEFAULT_ROut = { LOW, LOW, LOW, LOW };
 
@@ -106,7 +92,7 @@ struct ROM {
 
 
 // default ROM
-const ROM DEFAULT_ROM = { 1, 2, DEFAULT_RParams, CRC_OK };
+const ROM DEFAULT_ROM = { MODULE_ID, MODULE_FW_V, DEFAULT_RParams, CRC_OK };
 
 unsigned long CRC(byte * rom, size_t bytes);
 #define CRC_ROM(p_rom) CRC((byte*)p_rom, sizeof(ROM))
@@ -152,6 +138,27 @@ struct PrFloat {
 PrFloat printfloat(float f, int prec=2) {
   const long tens[] = {1, 10, 100, 1000, 10000, 100000, 1000000};
   return {f, (f-int(f))*tens[prec]};
+}
+
+// UTILS
+
+
+#ifdef __arm__
+// should use uinstd.h to define sbrk but Due causes a conflict
+extern "C" char* sbrk(int incr);
+#else  // __ARM__
+extern char *__brkval;
+#endif  // __arm__
+ 
+int freeMemory() {
+  char top;
+#ifdef __arm__
+  return &top - reinterpret_cast<char*>(sbrk(0));
+#elif defined(CORE_TEENSY) || (ARDUINO > 103 && ARDUINO != 151)
+  return &top - __brkval;
+#else  // __arm__
+  return __brkval ? &top - __brkval : &top - __malloc_heap_start;
+#endif  // __arm__
 }
 
 #endif //MODULE1_H
